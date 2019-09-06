@@ -1,15 +1,16 @@
-specVersion: 0.0.1
-description: A community DAO focused on funding Ethereum development, in the name of Moloch the God
-  of Coordination Failure.
-repository: https://github.com/MolochVentures/moloch-monorepo/
+specVersion: 0.0.2
+description: The Trojan DAO is created to facilitate the coordination of autonomous cultural
+  practices, a means to cultivate a commons through the development of shared
+  infrastructure for art.
+repository: https://github.com/TROJANFOUNDATION/trojan-monorepo/
 schema:
   file: schema.graphql
 dataSources:
   - kind: ethereum/contract
-    name: Moloch
+    name: Trojan
     network: mainnet
     source:
-      address: "0x1fd169A4f5c59ACf79d0Fd5d91D1201EF1Bce9f1"
+      address: "0xcc7dcdb700eed457c8180406d7d699877f4eee24"
       abi: Moloch
     mapping:
       kind: ethereum/events
@@ -19,7 +20,7 @@ dataSources:
         - Proposal
       abis:
         - name: Moloch
-          file: Moloch/abis/Moloch.abi
+          file: Trojan/abis/Moloch.abi
       eventHandlers:
         - event: SummonComplete(indexed address,uint256)
           handler: handleSummonComplete
@@ -37,7 +38,7 @@ dataSources:
           handler: handleAbort
         - event: UpdateDelegateKey(indexed address,address)
           handler: handleUpdateDelegateKey
-      file: Moloch/Moloch.wasm
+      file: Trojan/Trojan.wasm
   - kind: ethereum/contract
     name: MolochPool
     network: mainnet
