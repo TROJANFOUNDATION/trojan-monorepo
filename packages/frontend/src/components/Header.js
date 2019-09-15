@@ -479,7 +479,7 @@ export default ({ loggedInUser, client }) => {
     <div id="header">
       <Grid container columns={3} stackable verticalAlign="middle">
         <Grid.Column textAlign="center">
-          <a href="https://www.trojanfoundation.com/blog" target="_blank" rel="noopener noreferrer">
+          <a href="https://trojandao.discoursehosting.net" target="_blank" rel="noopener noreferrer">
             <Icon name="discourse" size="big" />
           </a>
           <a href="https://twitter.com/trojandao" target="_blank" rel="noopener noreferrer">
