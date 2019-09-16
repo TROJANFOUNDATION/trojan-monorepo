@@ -294,7 +294,7 @@ function ApproveWethMenu({ token, eth, onLoadMain, loggedInUser }) {
           value={approval}
         />
         <Button.Group>
-          <Button onClick={approve}>Approve Moloch</Button>
+          <Button onClick={approve}>Approve Trojan</Button>
           <Button onClick={approvePool}>Approve Pool</Button>
         </Button.Group>
         <Form.Input
