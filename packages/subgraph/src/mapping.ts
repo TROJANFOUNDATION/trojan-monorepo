@@ -1,4 +1,4 @@
-import { BigInt, Bytes } from "@graphprotocol/graph-ts";
+import { BigInt, Bytes, log } from "@graphprotocol/graph-ts";
 import {
   Moloch,
   SummonComplete,
@@ -17,9 +17,16 @@ import {
   KeeperWithdraw,
   Sync,
   SharesMinted,
-  SharesBurned,
+  SharesBurned
 } from "./types/MolochPool/MolochPool";
-import { Proposal, Member, Vote, Applicant, PoolMember, PoolMeta } from "./types/schema";
+import {
+  Proposal,
+  Member,
+  Vote,
+  Applicant,
+  PoolMember,
+  PoolMeta
+} from "./types/schema";
 
 export function handleSummonComplete(event: SummonComplete): void {
   let member = new Member(event.params.summoner.toHex());
@@ -30,6 +37,7 @@ export function handleSummonComplete(event: SummonComplete): void {
   member.didRagequit = false;
   member.votes = new Array<string>();
   member.submissions = new Array<string>();
+  member.highestIndexYesVote = BigInt.fromI32(0);
   member.save();
 }
 
@@ -51,9 +59,12 @@ export function handleSubmitProposal(event: SubmitProposal): void {
   //     mapping (address => Vote) votesByMember; // the votes on this proposal by each member
   // }
   let contract = Moloch.bind(event.address);
-  let proposalFromContract = contract.proposalQueue(event.params.proposalIndex);
+  let proposalFromContract = contract.proposalQueue(
+    event.params.proposalIndex
+  );
   let startingPeriod = proposalFromContract.value3;
   let details = proposalFromContract.value10;
+  let maxTotalSharesAtYesVote = proposalFromContract.value11;
 
   let proposal = new Proposal(event.params.proposalIndex.toString());
   proposal.timestamp = event.block.timestamp.toString();
@@ -67,12 +78,13 @@ export function handleSubmitProposal(event: SubmitProposal): void {
   proposal.tokenTribute = event.params.tokenTribute;
   proposal.sharesRequested = event.params.sharesRequested;
   proposal.yesVotes = BigInt.fromI32(0);
-  proposal.noVotes = BigInt.fromI32(0);
+  proposal.noVotes = BigInt.fromI32(0);``
   proposal.processed = false;
   proposal.didPass = false;
   proposal.aborted = false;
   proposal.votes = new Array<string>();
   proposal.details = details;
+  proposal.maxTotalSharesAtYesVote = maxTotalSharesAtYesVote;
   proposal.save();
 
   let applicant = new Applicant(event.params.applicant.toHex());
@@ -114,9 +126,11 @@ export function handleSubmitVote(event: SubmitVote): void {
   vote.member = event.params.memberAddress.toHex();
   vote.save();
 
+  let member = Member.load(event.params.memberAddress.toHex());
   let proposal = Proposal.load(event.params.proposalIndex.toString());
   if (event.params.uintVote == 1) {
     proposal.yesVotes = proposal.yesVotes.plus(BigInt.fromI32(1));
+    member.highestIndexYesVote = event.params.proposalIndex;
   }
   if (event.params.uintVote == 2) {
     proposal.noVotes = proposal.noVotes.plus(BigInt.fromI32(1));
@@ -133,8 +147,8 @@ export function handleSubmitVote(event: SubmitVote): void {
   applicant.votes = applicantVotes;
   applicant.save();
 
-  let member = Member.load(event.params.memberAddress.toHex());
   let memberVotes = member.votes;
+  member.highestIndexYesVote
   memberVotes.push(voteID);
   member.votes = memberVotes;
   member.save();
@@ -165,6 +179,7 @@ export function handleProcessProposal(event: ProcessProposal): void {
       newMember.didRagequit = false;
       newMember.votes = new Array<string>();
       newMember.submissions = new Array<string>();
+      newMember.highestIndexYesVote = BigInt.fromI32(0);
       newMember.save();
     } else {
       member.shares = member.shares.plus(event.params.sharesRequested);
