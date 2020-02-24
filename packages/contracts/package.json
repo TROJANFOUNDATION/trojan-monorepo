@@ -22,7 +22,7 @@
     "web3-eth-abi": "^1.0.0-beta.36"
   },
   "devDependencies": {
-    "@nomiclabs/buidler": "^1.0.1",
+    "@nomiclabs/buidler": "^1.1.2",
     "@nomiclabs/buidler-etherscan": "^1.0.1",
     "standard": "14.1.0"
   },
