@@ -2,7 +2,7 @@ import React from "react";
 import { Segment, Grid, Button, Tab, Icon, Loader } from "semantic-ui-react";
 import { Route, Switch, Link } from "react-router-dom";
 
-import ProposalDetail, { Vote } from "./ProposalDetail";
+import ProposalDetail from "./ProposalDetail";
 import ProgressBar from "./ProgressBar";
 import { useQuery } from "react-apollo";
 import { ProposalStatus, getProposalCountdownText } from "../helpers/proposals";
@@ -12,22 +12,6 @@ import { getShareValue } from "helpers/currency";
 
 const ProposalCard = ({ proposal }) => {
   let id = proposal.id;
-
-  const yesShares = proposal.votes.reduce((totalVotes, vote) => {
-    if (vote.uintVote === Vote.Yes) {
-      return (totalVotes += parseInt(vote.member.shares));
-    } else {
-      return totalVotes;
-    }
-  }, 0);
-
-  const noShares = proposal.votes.reduce((totalVotes, vote) => {
-    if (vote.uintVote === Vote.No) {
-      return (totalVotes += parseInt(vote.member.shares));
-    } else {
-      return totalVotes;
-    }
-  }, 0);
 
   return (
     <Grid.Column mobile={16} tablet={8} computer={5}>
@@ -71,7 +55,7 @@ const ProposalCard = ({ proposal }) => {
               </Grid.Row>
             </Grid>
           ) : (
-            <ProgressBar yes={yesShares} no={noShares} />
+            <ProgressBar yes={proposal.yesShares} no={proposal.noShares} />
           )}
         </Segment>
       </Link>
@@ -80,9 +64,10 @@ const ProposalCard = ({ proposal }) => {
 };
 
 const GET_COMPLETED_PROPOSAL_LIST = gql`
-  {
+  query Feed($offset: Int, $limit: Int) {
     proposals(
-      first: 100
+      first: $limit
+      skip: $offset
       orderBy: proposalIndex
       orderDirection: desc
       where: { processed: true }
@@ -96,6 +81,8 @@ const GET_COMPLETED_PROPOSAL_LIST = gql`
       aborted
       yesVotes
       noVotes
+      yesShares
+      noShares
       proposalIndex
       votes(first: 100) {
         member {
@@ -134,6 +121,8 @@ const GET_ACTIVE_PROPOSAL_LIST = gql`
       aborted
       yesVotes
       noVotes
+      yesShares
+      noShares
       proposalIndex
       votes(first: 100) {
         member {
@@ -159,11 +148,21 @@ const GET_ACTIVE_PROPOSAL_LIST = gql`
   }
 `;
 
+let finishedLoadingRecords = false;
 const ProposalList = ({ isActive }) => {
   const { loading, error, data } = useQuery(GET_ACTIVE_PROPOSAL_LIST);
-  const { loading: completedLoading, error: completedError, data: completedData } = useQuery(
-    GET_COMPLETED_PROPOSAL_LIST,
-  );
+  const {
+    loading: completedLoading,
+    error: completedError,
+    data: completedData,
+    fetchMore: completedFetchMore,
+  } = useQuery(GET_COMPLETED_PROPOSAL_LIST, {
+    variables: {
+      offset: 0,
+      limit: 100,
+    },
+    notifyOnNetworkStatusChange: true,
+  });
 
   if (loading) return <Loader size="massive" active />;
   if (error) throw new Error(error);
@@ -174,6 +173,28 @@ const ProposalList = ({ isActive }) => {
   let completedProposals = [];
   if (!completedLoading) {
     completedProposals = completedData.proposals;
+    if (!finishedLoadingRecords) {
+      console.log(
+        `Loading more completed proposal records... offset: ${completedData.proposals.length}`,
+      );
+      completedFetchMore({
+        variables: {
+          offset: completedData.proposals.length,
+        },
+        updateQuery: (prev, { fetchMoreResult }) => {
+          console.log(
+            `fetchMoreResult.proposals.length: ${fetchMoreResult.proposals.length}, prev.proposals.length: ${prev.proposals.length}`,
+          );
+          if (fetchMoreResult.proposals.length === 0) {
+            console.log(`Finished loading`);
+            finishedLoadingRecords = true;
+          }
+          return Object.assign({}, prev, {
+            proposals: [...prev.proposals, ...fetchMoreResult.proposals],
+          });
+        },
+      });
+    }
   }
 
   // sort in descending order of index

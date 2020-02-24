@@ -244,6 +244,24 @@ export class Proposal extends Entity {
     this.set("noVotes", Value.fromBigInt(value));
   }
 
+  get yesShares(): BigInt {
+    let value = this.get("yesShares");
+    return value.toBigInt();
+  }
+
+  set yesShares(value: BigInt) {
+    this.set("yesShares", Value.fromBigInt(value));
+  }
+
+  get noShares(): BigInt {
+    let value = this.get("noShares");
+    return value.toBigInt();
+  }
+
+  set noShares(value: BigInt) {
+    this.set("noShares", Value.fromBigInt(value));
+  }
+
   get processed(): boolean {
     let value = this.get("processed");
     return value.toBoolean();
@@ -538,6 +556,55 @@ export class Member extends Entity {
 
   set submissions(value: Array<string>) {
     this.set("submissions", Value.fromStringArray(value));
+  }
+}
+
+export class Meta extends Entity {
+  constructor(id: string) {
+    super();
+    this.set("id", Value.fromString(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(id !== null, "Cannot save Meta entity without an ID");
+    assert(
+      id.kind == ValueKind.STRING,
+      "Cannot save Meta entity with non-string ID. " +
+        'Considering using .toHex() to convert the "id" to a string.'
+    );
+    store.set("Meta", id.toString(), this);
+  }
+
+  static load(id: string): Meta | null {
+    return store.get("Meta", id) as Meta | null;
+  }
+
+  get id(): string {
+    let value = this.get("id");
+    return value.toString();
+  }
+
+  set id(value: string) {
+    this.set("id", Value.fromString(value));
+  }
+
+  get currentPeriod(): BigInt {
+    let value = this.get("currentPeriod");
+    return value.toBigInt();
+  }
+
+  set currentPeriod(value: BigInt) {
+    this.set("currentPeriod", Value.fromBigInt(value));
+  }
+
+  get totalShares(): BigInt {
+    let value = this.get("totalShares");
+    return value.toBigInt();
+  }
+
+  set totalShares(value: BigInt) {
+    this.set("totalShares", Value.fromBigInt(value));
   }
 }
 

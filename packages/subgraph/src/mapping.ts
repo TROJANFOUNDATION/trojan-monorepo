@@ -1,4 +1,4 @@
-import { BigInt, Bytes, log } from "@graphprotocol/graph-ts";
+import { BigInt, Bytes, EthereumBlock, Address } from "@graphprotocol/graph-ts";
 import {
   Moloch,
   SummonComplete,
@@ -19,14 +19,7 @@ import {
   SharesMinted,
   SharesBurned
 } from "./types/MolochPool/MolochPool";
-import {
-  Proposal,
-  Member,
-  Vote,
-  Applicant,
-  PoolMember,
-  PoolMeta
-} from "./types/schema";
+import { Proposal, Member, Vote, Applicant, PoolMember, PoolMeta, Meta } from "./types/schema";
 
 export function handleSummonComplete(event: SummonComplete): void {
   let member = new Member(event.params.summoner.toHex());
@@ -78,7 +71,10 @@ export function handleSubmitProposal(event: SubmitProposal): void {
   proposal.tokenTribute = event.params.tokenTribute;
   proposal.sharesRequested = event.params.sharesRequested;
   proposal.yesVotes = BigInt.fromI32(0);
-  proposal.noVotes = BigInt.fromI32(0);``
+  proposal.noVotes = BigInt.fromI32(0);
+  proposal.yesShares = BigInt.fromI32(0);
+  proposal.noShares = BigInt.fromI32(0);
+  proposal.maxTotalSharesAtYesVote = BigInt.fromI32(0);
   proposal.processed = false;
   proposal.didPass = false;
   proposal.aborted = false;
@@ -108,6 +104,16 @@ export function handleSubmitProposal(event: SubmitProposal): void {
   memberSubmissions.push(submission);
   member.submissions = memberSubmissions;
   member.save();
+
+  let currentPeriod = contract.getCurrentPeriod();
+
+  let meta = Meta.load("");
+  if (!meta) {
+    meta = new Meta("");
+    meta.totalShares = new BigInt(0);
+  }
+  meta.currentPeriod = currentPeriod;
+  meta.save();
 }
 
 export function handleSubmitVote(event: SubmitVote): void {
@@ -128,12 +134,15 @@ export function handleSubmitVote(event: SubmitVote): void {
 
   let member = Member.load(event.params.memberAddress.toHex());
   let proposal = Proposal.load(event.params.proposalIndex.toString());
+
   if (event.params.uintVote == 1) {
     proposal.yesVotes = proposal.yesVotes.plus(BigInt.fromI32(1));
     member.highestIndexYesVote = event.params.proposalIndex;
+    proposal.yesShares = proposal.yesShares.plus(member.shares);
   }
   if (event.params.uintVote == 2) {
     proposal.noVotes = proposal.noVotes.plus(BigInt.fromI32(1));
+    proposal.noShares = proposal.noShares.plus(member.shares);
   }
 
   let proposalVotes = proposal.votes;
@@ -152,10 +161,21 @@ export function handleSubmitVote(event: SubmitVote): void {
   memberVotes.push(voteID);
   member.votes = memberVotes;
   member.save();
+
+  let contract = Moloch.bind(event.address);
+  let currentPeriod = contract.getCurrentPeriod();
+
+  let meta = Meta.load("");
+  if (!meta) {
+    meta = new Meta("");
+    meta.totalShares = new BigInt(0);
+  }
+  meta.currentPeriod = currentPeriod;
+  meta.save();
 }
 
 export function handleProcessProposal(event: ProcessProposal): void {
-  let proposal = Proposal.load(event.params.proposalIndex.toString());
+  let proposal = new Proposal(event.params.proposalIndex.toString());
   proposal.applicant = event.params.applicant.toHex();
   proposal.memberAddress = event.params.memberAddress;
   proposal.tokenTribute = event.params.tokenTribute;
@@ -186,6 +206,19 @@ export function handleProcessProposal(event: ProcessProposal): void {
       member.tokenTribute = member.tokenTribute.plus(event.params.tokenTribute);
       member.save();
     }
+
+    let contract = Moloch.bind(event.address);
+    let currentPeriod = contract.getCurrentPeriod();
+
+    // update total shares
+    let meta = Meta.load("");
+    if (!meta) {
+      meta = new Meta("");
+      meta.totalShares = event.params.sharesRequested;
+    } else {
+      meta.totalShares = meta.totalShares.plus(event.params.sharesRequested);
+    }
+    meta.currentPeriod = currentPeriod;
   }
 }
 
@@ -196,6 +229,17 @@ export function handleRagequit(event: Ragequit): void {
     member.isActive = false;
   }
   member.save();
+
+  let contract = Moloch.bind(event.address);
+  let currentPeriod = contract.getCurrentPeriod();
+
+  let meta = Meta.load("");
+  if (!meta) {
+    meta = new Meta("");
+    meta.totalShares = new BigInt(0);
+  }
+  meta.currentPeriod = currentPeriod;
+  meta.save();
 }
 
 export function handleAbort(event: Abort): void {
@@ -206,12 +250,35 @@ export function handleAbort(event: Abort): void {
   let applicant = Applicant.load(event.params.applicantAddress.toHex());
   applicant.aborted = true;
   applicant.save();
+
+  let contract = Moloch.bind(event.address);
+  let currentPeriod = contract.getCurrentPeriod();
+
+  let meta = Meta.load("");
+  if (!meta) {
+    meta = new Meta("");
+    meta.totalShares = new BigInt(0);
+
+  }
+  meta.currentPeriod = currentPeriod;
+  meta.save();
 }
 
 export function handleUpdateDelegateKey(event: UpdateDelegateKey): void {
   let member = Member.load(event.params.memberAddress.toHex());
   member.delegateKey = event.params.newDelegateKey;
   member.save();
+
+  let contract = Moloch.bind(event.address);
+  let currentPeriod = contract.getCurrentPeriod();
+
+  let meta = Meta.load("");
+  if (!meta) {
+    meta = new Meta("");
+    meta.totalShares = new BigInt(0);
+  }
+  meta.currentPeriod = currentPeriod;
+  meta.save();
 }
 
 export function handlePoolSharesMinted(event: SharesMinted): void {
